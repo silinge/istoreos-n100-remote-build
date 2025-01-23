@@ -56,19 +56,51 @@ jobs:
         echo "CONFIG_TARGET_IMAGES_EXT4=y" >> .config
         echo "CONFIG_TARGET_IMAGES_EFI=y" >> .config
 
-    - name: Build firmware
+    - name: Compile the firmware
+      id: compile
       run: |
         cd istoreos
-        make -j$(( $(nproc) + 1 )) V=s
+        echo -e "$(nproc) thread compile"
+        make -j$(nproc) || make -j1 || make -j1 V=s
+        echo "status=success" >> $GITHUB_OUTPUT
+        grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
+        [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
+        echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
 
-    - name: Check for built artifacts
-      run: |
-        cd istoreos
-        ls ./bin/targets/x86/64/
+    - name: Check space usage
+      if: (!cancelled())
+      run: df -hT
 
-    - name: Upload artifact
+    - name: Upload bin directory
       uses: actions/upload-artifact@v4
+      if: steps.compile.outputs.status == 'success'
       with:
-        name: istoreos-firmware
-        path: istoreos/bin/targets/x86/64/*-x86-64-generic-ext4-combined-efi.img.gz
-        if-no-files-found: error
+        name: iStoreOS_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+        path: istoreos/bin
+
+    - name: Organize files
+      id: organize
+      if: steps.compile.outputs.status == 'success'
+      run: |
+        cd istoreos/bin/targets/x86/64/
+        if [ -d "$PWD" ]; then
+          rm -rf packages
+          rm -rf *.buildinfo
+          rm -rf sha256sums
+          rm -rf *.manifest
+          rm -rf *kernel.bin
+          rm -rf *.itb
+          rm -rf *.json
+          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+          echo "status=success" >> $GITHUB_OUTPUT
+        else
+          echo "Directory does not exist"
+          echo "status=failure" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Upload firmware directory
+      uses: actions/upload-artifact@v4
+      if: steps.organize.outputs.status == 'success'
+      with:
+        name: iStoreOS_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+        path: ${{ env.FIRMWARE }}
