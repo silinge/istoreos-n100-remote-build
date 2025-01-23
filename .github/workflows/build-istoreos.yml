@@ -7,19 +7,19 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Cache build dependencies
-      uses: actions/cache@v2
+      uses: actions/cache@v4
       with:
         path: |
           istoreos/dl
           istoreos/staging_dir
-        key: ${{ runner.os }}-istoreos-cache-${{ hashFiles('istoreos/feeds.conf') }}
+        key: ${{ runner.os }}-istoreos-cache-${{ hashFiles('feeds.conf') }}
         restore-keys: |
           ${{ runner.os }}-istoreos-cache-
 
@@ -30,28 +30,26 @@ jobs:
 
     - name: Clone iStoreOS
       run: |
-        git clone --depth=1 -b istoreos-24.10 https://github.com/istoreos/istoreos.git istoreos-build
-        cd istoreos-build
+        git clone --depth=1 -b istoreos-24.10 https://github.com/istoreos/istoreos.git istoreos
 
     - name: Update feeds
       if: steps.cache.outputs.cache-hit != 'true'
       run: |
-        mv ../feeds.conf .
+        cp feeds.conf istoreos/
+        cd istoreos
         ./scripts/feeds update -a
         ./scripts/feeds install -a
 
     - name: Configure
       run: |
+        cd istoreos
         make defconfig
         echo "CONFIG_TARGET_x86_64=y" >> .config
         echo "CONFIG_TARGET_x86_64_Generic=y" >> .config
         echo "CONFIG_PACKAGE_kmod-rtw8852be=y" >> .config
-        # Set kernel partition size to 50M
         echo "CONFIG_TARGET_ROOTFS_PARTSIZE=50" >> .config
-        # Set file partition size to 2000M
         echo "CONFIG_TARGET_IMAGES_GPT_PARTED='set 1 msdos 1'" >> .config
         echo "CONFIG_TARGET_IMAGES_GPT_PARTED_SIZE=2000" >> .config
-        # Only build ext4.efi.img
         echo "CONFIG_TARGET_IMAGES_GZIP=n" >> .config
         echo "CONFIG_TARGET_IMAGES_ISO=n" >> .config
         echo "CONFIG_TARGET_IMAGES_TAR=n" >> .config
@@ -59,10 +57,12 @@ jobs:
         echo "CONFIG_TARGET_IMAGES_EFI=y" >> .config
 
     - name: Build firmware
-      run: make -j$(( $(nproc) + 1 )) V=s
+      run: |
+        cd istoreos
+        make -j$(( $(nproc) + 1 )) V=s
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: istoreos-firmware
-        path: istoreos-build/bin/targets/x86/64/*.efi.img
+        path: istoreos/bin/targets/x86/64/*.efi.img
