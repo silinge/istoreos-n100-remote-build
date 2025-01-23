@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout repository
@@ -46,12 +46,23 @@ jobs:
         echo "CONFIG_TARGET_x86_64=y" >> .config
         echo "CONFIG_TARGET_x86_64_Generic=y" >> .config
         echo "CONFIG_PACKAGE_kmod-rtw8852be=y" >> .config
+        # Set kernel partition size to 50M
+        echo "CONFIG_TARGET_ROOTFS_PARTSIZE=50" >> .config
+        # Set file partition size to 2000M
+        echo "CONFIG_TARGET_IMAGES_GPT_PARTED='set 1 msdos 1'" >> .config
+        echo "CONFIG_TARGET_IMAGES_GPT_PARTED_SIZE=2000" >> .config
+        # Only build ext4.efi.img
+        echo "CONFIG_TARGET_IMAGES_GZIP=n" >> .config
+        echo "CONFIG_TARGET_IMAGES_ISO=n" >> .config
+        echo "CONFIG_TARGET_IMAGES_TAR=n" >> .config
+        echo "CONFIG_TARGET_IMAGES_EXT4=y" >> .config
+        echo "CONFIG_TARGET_IMAGES_EFI=y" >> .config
 
     - name: Build firmware
-      run: make -j$(( $(nproc) + 1 ))
+      run: make -j$(( $(nproc) + 1 )) V=s
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: istoreos-firmware
-        path: istoreos-build/bin/targets/x86/64/
+        path: istoreos-build/bin/targets/x86/64/*.efi.img
