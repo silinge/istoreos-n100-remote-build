@@ -23,6 +23,9 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-istoreos-cache-
 
+    - name: Remove existing istoreos directory if it exists
+      run: rm -rf istoreos
+
     - name: Install dependencies
       run: |
         sudo apt-get update
@@ -50,10 +53,6 @@ jobs:
         echo "CONFIG_TARGET_ROOTFS_PARTSIZE=50" >> .config
         echo "CONFIG_TARGET_IMAGES_GPT_PARTED='set 1 msdos 1'" >> .config
         echo "CONFIG_TARGET_IMAGES_GPT_PARTED_SIZE=2000" >> .config
-        # Remove these lines if they conflict with the default behavior:
-        # echo "CONFIG_TARGET_IMAGES_GZIP=n" >> .config
-        # echo "CONFIG_TARGET_IMAGES_ISO=n" >> .config
-        # echo "CONFIG_TARGET_IMAGES_TAR=n" >> .config
         echo "CONFIG_TARGET_IMAGES_EXT4=y" >> .config
         echo "CONFIG_TARGET_IMAGES_EFI=y" >> .config
 
