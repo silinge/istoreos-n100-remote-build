@@ -11,7 +11,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Cache build dependencies
       uses: actions/cache@v4
@@ -50,9 +50,10 @@ jobs:
         echo "CONFIG_TARGET_ROOTFS_PARTSIZE=50" >> .config
         echo "CONFIG_TARGET_IMAGES_GPT_PARTED='set 1 msdos 1'" >> .config
         echo "CONFIG_TARGET_IMAGES_GPT_PARTED_SIZE=2000" >> .config
-        echo "CONFIG_TARGET_IMAGES_GZIP=n" >> .config
-        echo "CONFIG_TARGET_IMAGES_ISO=n" >> .config
-        echo "CONFIG_TARGET_IMAGES_TAR=n" >> .config
+        # Remove these lines if they conflict with the default behavior:
+        # echo "CONFIG_TARGET_IMAGES_GZIP=n" >> .config
+        # echo "CONFIG_TARGET_IMAGES_ISO=n" >> .config
+        # echo "CONFIG_TARGET_IMAGES_TAR=n" >> .config
         echo "CONFIG_TARGET_IMAGES_EXT4=y" >> .config
         echo "CONFIG_TARGET_IMAGES_EFI=y" >> .config
 
@@ -61,8 +62,14 @@ jobs:
         cd istoreos
         make -j$(( $(nproc) + 1 )) V=s
 
+    - name: Check for built artifacts
+      run: |
+        cd istoreos
+        ls ./bin/targets/x86/64/
+
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: istoreos-firmware
-        path: istoreos/bin/targets/x86/64/*.efi.img
+        path: istoreos/bin/targets/x86/64/*-x86-64-generic-ext4-combined-efi.img.gz
+        if-no-files-found: error
