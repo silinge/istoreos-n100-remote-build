@@ -1,0 +1,47 @@
+name: Build iStoreOS
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential gcc g++ make git unzip libncurses5-dev zlib1g-dev
+
+    - name: Clone iStoreOS
+      run: |
+        git clone --depth=1 -b istoreos-24.10 https://github.com/istoreos/istoreos.git istoreos-build
+        cd istoreos-build
+
+    - name: Update feeds
+      run: |
+        mv ../feeds.conf .
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+
+    - name: Configure
+      run: |
+        make defconfig
+        echo "CONFIG_TARGET_x86_64=y" >> .config
+        echo "CONFIG_TARGET_x86_64_Generic=y" >> .config
+        echo "CONFIG_PACKAGE_kmod-rtw8852be=y" >> .config
+
+    - name: Build firmware
+      run: |
+        make -j$(nproc)
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: istoreos-firmware
+        path: istoreos-build/bin/targets/x86/64/
